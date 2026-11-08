@@ -932,5 +932,83 @@
       });
     }
   </script>
+<!-- Shakes funnel tracking -->
+<script>
+(function () {
+  'use strict';
+  if (window.__shakesTracking) return;
+  window.__shakesTracking = true;
+  var pixel = '1109356085063427';
+  var kits = {
+    '/JHFv4ol': {id:'56ccd160-db31-11f1-a809-b1e58ae0dba2',name:'Shakes na Garrafinha — 7 Receitas',value:10},
+    '/upqTiI6': {id:'907c1f10-db31-11f1-bce4-add2aefaed80',name:'Shakes na Garrafinha — Receitas + Kit de Vendas',value:27},
+    '/75a1BUZ': {id:'b353f3a0-db31-11f1-9e5c-b7c3e62f3f75',name:'Shakes na Garrafinha — Plano Completo',value:37}
+  };
+  var keys = ['utm_source','utm_medium','utm_campaign','utm_content','utm_term','src','sck','s1','s2','s3','fbclid'];
+  var params = new URLSearchParams(location.search);
+  var attribution = {};
+  try { attribution = JSON.parse(sessionStorage.getItem('shakes_attribution') || '{}'); } catch (_) {}
+  if (!attribution || typeof attribution !== 'object' || Array.isArray(attribution)) attribution = {};
+  // A new tagged visit replaces the previous campaign, avoiding mixed attribution.
+  if (keys.some(function(k) { return params.has(k); })) attribution = {};
+  keys.forEach(function(k) {
+    var v = params.get(k);
+    if (v && v.length <= 1000 && !/[{}]/.test(v)) attribution[k] = v;
+  });
+  try { sessionStorage.setItem('shakes_attribution', JSON.stringify(attribution)); } catch (_) {}
+  function kitFor(a) {
+    try { var u = new URL(a.href); return u.hostname === 'pay.kiwify.com.br' ? kits[u.pathname] : null; } catch (_) { return null; }
+  }
+  function decorate(a) {
+    if (!kitFor(a)) return;
+    var u = new URL(a.href);
+    keys.forEach(function(k) { if (attribution[k] && !u.searchParams.has(k)) u.searchParams.set(k, attribution[k]); });
+    a.href = u.toString();
+  }
+  document.querySelectorAll('a[href]').forEach(decorate);
+  var allowed = navigator.globalPrivacyControl !== true;
+  if (allowed) {
+    !function(f,b,e,v,n,t,s) {
+      if(f.fbq)return;
+      n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+      if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];
+      t=b.createElement(e);t.async=!0;t.src=v;
+      s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s);
+    }(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
+    window.fbq('init',pixel);
+  }
+  function eventId() { return window.crypto && window.crypto.randomUUID ? window.crypto.randomUUID() : Date.now().toString(36)+'-'+Math.random().toString(36).slice(2); }
+  function send(kind, name, data) {
+    if (allowed && window.fbq) window.fbq(kind,pixel,name,data,{eventID:eventId()});
+  }
+  send('trackSingle','PageView',{});
+  var viewed = false;
+  function viewOffer() {
+    if (viewed) return;
+    viewed = true;
+    send('trackSingle','ViewContent',{content_name:'Shakes na Garrafinha — Kits digitais',content_ids:Object.keys(kits).map(function(k){return kits[k].id;}),content_type:'product',currency:'BRL'});
+  }
+  var offer = document.getElementById('planos');
+  if (offer && 'IntersectionObserver' in window) {
+    var observer = new IntersectionObserver(function(entries) {
+      if (entries.some(function(e){return e.isIntersecting;})) { viewOffer(); observer.disconnect(); }
+    },{threshold:0.05});
+    observer.observe(offer);
+  } else if (offer) viewOffer();
+  var lastClick = 0;
+  document.addEventListener('click',function(e) {
+    var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+    var kit = a && kitFor(a);
+    if (!kit) return;
+    decorate(a);
+    var now = Date.now();
+    if (now-lastClick < 1000) return;
+    lastClick = now;
+    // CheckoutClick measures intent; Kiwify owns InitiateCheckout on checkout load.
+    send('trackSingleCustom','CheckoutClick',{content_name:kit.name,content_ids:[kit.id],content_type:'product',value:kit.value,currency:'BRL',checkout_url:new URL(a.href).origin+new URL(a.href).pathname});
+  },true);
+  // Purchase is sent only by the approved-payment integration in Kiwify.
+})();
+</script>
 </body>
 </html>
